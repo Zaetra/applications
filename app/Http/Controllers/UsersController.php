@@ -6,8 +6,8 @@ use App\Models\User;
 use App\Contract\UserRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
+use PharIo\Version\Exception;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
 
 class UsersController extends Controller
@@ -20,9 +20,16 @@ class UsersController extends Controller
 
     public function index(): JsonResponse
     {
-        return response()->json([
-            'data' => $this->repository->getAllUsers()
-        ]);
+        try {
+            return response()->json([
+                'data' => $this->repository->getAllUsers()
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage()
+            ], ResponseAlias::HTTP_NOT_FOUND);
+        }
+
     }
 
     public function store(Request $request): JsonResponse
@@ -32,22 +39,36 @@ class UsersController extends Controller
             'email'
         ]);
 
-        return response()->json(
-            [
-                'data' => $this->repository->createUser(
-                    array_merge($attributes,['password' => Hash::make($request->input('password'))])
-                )
-            ],
-            ResponseAlias::HTTP_CREATED
-        );
+        try {
+            return response()->json(
+                [
+                    'data' => $this->repository->createUser(
+                        array_merge($attributes,['password' => Hash::make($request->input('password'))])
+                    )
+                ],
+                ResponseAlias::HTTP_CREATED
+            );
+        } catch (Exception $exception) {
+            return  response()->json([
+                'error' => $exception->getMessage()
+            ], ResponseAlias::HTTP_BAD_REQUEST);
+        }
     }
 
-    public function show(User $user): JsonResponse
+    public function show(int $id): JsonResponse
     {
-
-        return response()->json([
-            'data' => $user
-        ]);
+        try {
+            $user = $this->repository->findById($id);
+            return response()->json([
+                'data' => $user
+            ],
+                ResponseAlias::HTTP_ACCEPTED
+            );
+        } catch (Exception $exception) {
+            return response()->json([
+                'error' => $exception->getMessage()
+            ], ResponseAlias::HTTP_NOT_FOUND);
+        }
     }
 
     public function update(User $user, Request $request): JsonResponse
@@ -57,16 +78,14 @@ class UsersController extends Controller
             'email'
         ]);
 
-        return response()->json([
-            'data' => $this->repository->updateUser($user, $attributes)
-        ]);
-    }
-
-    public function destroy(User $user): JsonResponse
-    {
-
-        $this->repository->deleteUser($user);
-
-        return response()->json(null, ResponseAlias::HTTP_NO_CONTENT);
+        try {
+            return response()->json([
+                'data' => $this->repository->updateUser($user, $attributes)
+            ]);
+        } catch (Exception $exception) {
+            return response()->json([
+                'error' => $exception->getMessage()
+            ], ResponseAlias::HTTP_BAD_REQUEST);
+        }
     }
 }
